@@ -4,7 +4,7 @@ import com.zz.bill.model.JsonResult;
 import com.zz.bill.model.account.UserInfo;
 
 public interface IAccountService {
-    Boolean checkExist(String accountName);
-    UserInfo register(User user);
+    JsonResult checkExist(String accountName);
+    JsonResult register(User user);
     JsonResult login(String account, String pwd);
 }

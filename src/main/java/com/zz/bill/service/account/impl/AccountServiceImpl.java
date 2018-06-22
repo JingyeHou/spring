@@ -2,41 +2,80 @@ package com.zz.bill.service.account.impl;
 
 import com.zz.bill.CommonCode;
 import com.zz.bill.entity.account.User;
+import com.zz.bill.exception.UserCreateException;
 import com.zz.bill.model.JsonResult;
 import com.zz.bill.model.account.UserInfo;
+import com.zz.bill.service.baseService.IUserService;
 import com.zz.bill.service.account.IAccountService;
+import com.zz.bill.util.TokenHolder;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.sql.Timestamp;
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 public class AccountServiceImpl implements IAccountService {
-    Map<String, User> users = new HashMap<String, User>();
+
+    @Autowired
+    IUserService userService;
     @Override
-    public Boolean checkExist(String accountName) {
-        return Boolean.FALSE;
+    public JsonResult checkExist(String accountName) {
+       if (userService.checkExist(accountName))
+           return JsonResult
+                   .builder()
+                   .code(CommonCode.SUCC)
+                   .msg("success")
+                   .data(true)
+                   .build();
+       return JsonResult
+               .builder()
+               .code(CommonCode.ACCOUNT_ALREADY_EXIST)
+               .msg("failure")
+               .data(false)
+               .build();
     }
 
     @Override
-    public UserInfo register(User user) {
-        users.put(user.getAccount(), user);
-        return UserInfo
+    public JsonResult register(User user) {
+        String token = "";
+        try {
+            token = userService.create(user);
+        } catch (UserCreateException e) {
+            e.printStackTrace();
+            return JsonResult
+                    .builder()
+                    .code(CommonCode.SYS_ERR)
+                    .msg("the account already exists")
+                    .data(false)
+                    .build();
+        }
+        UserInfo userInfo = UserInfo
                 .builder()
                 .account(user.getAccount())
                 .uid(user.getId())
-                .authToken("")
+                .authToken(token)
+                .build();
+        return JsonResult
+                .builder()
+                .code(CommonCode.SUCC)
+                .msg("success")
+                .data(userInfo)
                 .build();
     }
 
     @Override
     public JsonResult login(String account, String pwd) {
-        if (users.get(account) != null) {
-            if (users.get(account).getPwd() != pwd) {
+        User user = userService.getUserByAccount(account);
+        if (user != null) {
+            if (user.getPwd() != pwd) {
                 return JsonResult.builder().code(CommonCode.INVALID_PWD).msg("密码错误").data("").build();
             }
-            return JsonResult.builder().code(CommonCode.SUCC).msg("成功").data("").build();
+            UserInfo userInfo = UserInfo
+                    .builder()
+                    .account(account)
+                    .uid(user.getId())
+                    .authToken(TokenHolder.getTokenByAccount(account))
+                    .build();
+            return JsonResult.builder().code(CommonCode.SUCC).msg("成功").data(userInfo).build();
         }
         else {
             return JsonResult.builder().code(CommonCode.ACCOUNT_NOT_EXIST).msg("用户不存在").data("").build();
